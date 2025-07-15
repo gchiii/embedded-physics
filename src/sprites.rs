@@ -16,7 +16,7 @@ use embedded_graphics::primitives::{
 };
 
 use crate::geometry::{PointExt, SurfaceNormal, Area};
-use crate::vectors::{GfxVector, VecComp}; 
+use crate::vectors::{self, GfxVector, VecComp, VectorTrait}; 
 
 
 /// Make an enum that serves as a wrapper around the various Primitives from the embedded-graphics library
@@ -56,13 +56,13 @@ impl<'a> SpritePrimitive<'a> {
         distance
     }
 
-    pub fn calculate_reflection_vector<C: VecComp + core::convert::From<f32>>(
-        incoming_velocity: &GfxVector<C>,
-        collision_normal: &GfxVector<C>,
-        coefficient_of_restitution: f32,
-    ) -> GfxVector<C> {
-        GfxVector::calculate_reflection_vector(incoming_velocity, collision_normal, coefficient_of_restitution)
-    }    
+    // pub fn calculate_reflection_vector<C: VecComp + core::convert::From<f32> + vectors::SquareRoot>(
+    //     incoming_velocity: &GfxVector<C>,
+    //     collision_normal: &GfxVector<C>,
+    //     coefficient_of_restitution: f32,
+    // ) -> GfxVector<C> {
+    //     GfxVector::calculate_reflection_vector_cor(incoming_velocity, collision_normal, coefficient_of_restitution)
+    // }    
 
 }
 

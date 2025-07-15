@@ -1,7 +1,5 @@
 use embedded_graphics::{geometry::AnchorPoint, prelude::{Point, Size}, primitives::{Circle, Line, Polyline, Rectangle, Triangle}};
 
-use crate::vectors::{SpriteVector, VectorComponent};
-
 // use crate::gfx::GfxVec;
 
 
