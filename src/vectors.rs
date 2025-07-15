@@ -1,9 +1,9 @@
-use core::ops::{Add, Deref, Mul, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 use core::fmt::Debug;
 use embedded_graphics::prelude::Point;
 
 use micromath::vector::{Component, Vector, Vector2d};
-use num_traits::{self, AsPrimitive, Float, FromPrimitive, Inv, NumCast, Pow, ToPrimitive};
+use num_traits::{self, Float, FromPrimitive, NumCast, Pow, ToPrimitive};
 
 // use defmt::info;
 // use thiserror_no_std::Error;
@@ -65,7 +65,7 @@ impl Mul<i32> for GfxVector<i32> {
     }
 }
 
-impl<'a> Mul<i32> for &'a GfxVector<i32> {
+impl Mul<i32> for &GfxVector<i32> {
     type Output = GfxVector<i32>;
 
     fn mul(self, rhs: i32) -> Self::Output {
@@ -115,7 +115,7 @@ impl<'a> Mul<&'a GfxVector<i32>> for f32 {
     }
 }
 
-impl<'a> Mul<f32> for &'a GfxVector<i32> {
+impl Mul<f32> for &GfxVector<i32> {
     type Output = GfxVector<i32>;
 
     fn mul(self, rhs: f32) -> Self::Output {
@@ -123,7 +123,7 @@ impl<'a> Mul<f32> for &'a GfxVector<i32> {
     }
 }
 
-impl<'a> Mul<f32> for &'a GfxVector<f32> {
+impl Mul<f32> for &GfxVector<f32> {
     type Output = GfxVector<f32>;
 
     fn mul(self, rhs: f32) -> Self::Output {
@@ -164,7 +164,7 @@ impl<C: VecComp> Sub<GfxVector<C>> for GfxVector<C> {
         })
     }
 }
-impl<'a, C: VecComp> Sub<GfxVector<C>> for &'a GfxVector<C> {
+impl<C: VecComp> Sub<GfxVector<C>> for &GfxVector<C> {
     type Output = GfxVector<C>;
 
     fn sub(self, rhs: GfxVector<C>) -> Self::Output {

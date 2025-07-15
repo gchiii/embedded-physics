@@ -1,22 +1,21 @@
 use core::f32::consts::PI;
 
-use defmt::info;
 use embedded_graphics::prelude::{Dimensions, DrawTarget, PixelColor, Point, Transform};
 use embedded_graphics::primitives::{self, PrimitiveStyle, StyledDrawable};
 use embedded_graphics::primitives::{
     Line,
     Rectangle,
     Circle,
-    Ellipse,
-    Arc,
-    Sector,
+    // Ellipse,
+    // Arc,
+    // Sector,
     Triangle,
     Polyline,
-    RoundedRectangle
+    // RoundedRectangle
 };
 
 use crate::geometry::{PointExt, SurfaceNormal, Area};
-use crate::vectors::{self, GfxVector, VecComp, VectorTrait}; 
+ 
 
 
 /// Make an enum that serves as a wrapper around the various Primitives from the embedded-graphics library
