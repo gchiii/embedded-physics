@@ -16,6 +16,7 @@ pub trait VecComp:
     + FromPrimitive
     + core::ops::Neg<Output = Self>
     + SquareRoot
+    + defmt::Format
 {}
 
 impl VecComp for i32 {}
@@ -24,6 +25,12 @@ impl VecComp for f32 {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct GfxVector<C: VecComp>(pub Vector2d<C>);
+
+impl<C: VecComp> defmt::Format for GfxVector<C> {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "{{ x: {}, y: {} }}", self.x, self.y)
+    }
+}
 
 pub trait GfxVecTrait:
     Sized 
@@ -463,11 +470,11 @@ impl<C: VecComp> From<GfxVector<C>> for Point {
     }
 }
 
-impl<C: VecComp + defmt::Format> defmt::Format for GfxVector<C> {
-    fn format(&self, fmt: defmt::Formatter) {        
-        defmt::write!(fmt, "{{ x: {}, y: {} }}", self.x, self.y)
-    }
-}
+// impl<C: VecComp> defmt::Format for GfxVector<C> {
+//     fn format(&self, fmt: defmt::Formatter) {        
+//         defmt::write!(fmt, "{{ x: {}, y: {} }}", self.x, self.y)
+//     }
+// }
 
 
 pub trait VecNormalize {

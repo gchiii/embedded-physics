@@ -1,6 +1,7 @@
 use core::f32::consts::PI;
 use core::ops::Neg;
 
+use defmt::info;
 use embedded_graphics::prelude::{Angle, ContainsPoint, Dimensions, DrawTarget, PixelColor, Point, PointsIter, Transform};
 use embedded_graphics::primitives::{self, PrimitiveStyle, StyledDrawable};
 use embedded_graphics::primitives::{
@@ -324,7 +325,7 @@ where
     }
     
     pub fn is_moving(&self) -> bool {
-        self.velocity.x.to_i32().unwrap() == 0 && self.velocity.y.to_i32().unwrap() == 0
+        !(self.velocity.x.to_i32().unwrap() == 0 && self.velocity.y.to_i32().unwrap() == 0)
     }
 
     pub fn distance_between(&self, other: &Self) -> i32 {
@@ -440,11 +441,11 @@ where
         for i in 0..max_idx {
             let (left, right) = self.sprites.split_at_mut(i);
             if let Some((current_sprite, right)) = right.split_first_mut() {
+                // info!("sprite: {} vel: {}", current_sprite.name, current_sprite.velocity());
                 if current_sprite.is_moving() {
                     // Iterate over the remaining parts to find other elements matching the predicate
                     for other_sprite in left.iter().chain(right.iter()) {
                         if current_sprite.about_to_collide(other_sprite) {
-                        // if current_sprite.box_distance(other_sprite) < 1 {
                             if current_sprite.update_velocity(other_sprite) {
                                 // info!("{} bounced off of {}", current_sprite.name(), other_sprite.name());
                             }
