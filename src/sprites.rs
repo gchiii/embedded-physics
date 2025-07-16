@@ -221,7 +221,7 @@ pub struct Sprite<'a, C: PixelColor, T: VecComp>
     line_style: Option<PrimitiveStyle<C>>,
     shape: SpritePrimitive<'a>,
     area: u32,
-    velocity: GfxVector<T>,
+    velocity: Option<GfxVector<T>>,
 }
 
 impl<'a, C: PixelColor, T: VecComp> Drawable for Sprite<'a, C, T> {
@@ -234,9 +234,11 @@ impl<'a, C: PixelColor, T: VecComp> Drawable for Sprite<'a, C, T> {
         D: DrawTarget<Color = Self::Color> {
         self.shape.draw_styled(&self.style, target)?;
         if let Some(line_style) = self.line_style {
-            let center: Point = self.shape.center();
-            let delta: Point = self.velocity().into();
-            Line::with_delta(center, delta).draw_styled(&line_style, target)?;
+            if let Some(velocity) = self.velocity() {
+                let center: Point = self.shape.center();
+                let delta: Point = velocity.into();
+                Line::with_delta(center, delta).draw_styled(&line_style, target)?;
+            }
         }
         Ok(())
     }
@@ -285,25 +287,25 @@ impl<'a, C: PixelColor, T: VecComp> Sprite<'a, C, T> {
 
     pub fn with_velocity(self, velocity: GfxVector<T>) -> Self {
         Self {
-            velocity,
+            velocity: Some(velocity),
             ..self
         }
     }
+        
+    pub fn shape(&self) -> SpritePrimitive<'a> {
+        self.shape
+    }
     
-    pub fn velocity_mut(&mut self) -> &mut GfxVector<T> {
+    pub fn velocity(&self) -> Option<GfxVector<T>> {
+        self.velocity
+    }
+    
+    pub fn velocity_mut(&mut self) -> &mut Option<GfxVector<T>> {
         &mut self.velocity
     }
     
     pub fn set_velocity(&mut self, velocity: GfxVector<T>) {
-        self.velocity = velocity;
-    }
-    
-    pub fn velocity(&self) -> GfxVector<T> {
-        self.velocity
-    }
-    
-    pub fn shape(&self) -> SpritePrimitive<'a> {
-        self.shape
+        self.velocity = Some(velocity);
     }
     
 }
@@ -317,7 +319,10 @@ where
     // f32: Mul<GfxVector<T>, Output = GfxVector<T>> 
 {
     pub fn next_position(&self) -> SpritePrimitive<'_> {
-        self.shape.translate(self.velocity.into())
+        match self.velocity() {
+            Some(v) => self.shape.translate(v.into()),
+            None => self.shape(),
+        }
     }
 
     pub fn area(&self) -> u32 {
@@ -325,21 +330,29 @@ where
     }
     
     pub fn is_moving(&self) -> bool {
-        !(self.velocity.x.to_i32().unwrap() == 0 && self.velocity.y.to_i32().unwrap() == 0)
+        self.velocity.is_some()
     }
 
     pub fn distance_between(&self, other: &Self) -> i32 {
-        self.shape.box_distance(&other.shape)
+        let area_of_distance = self.shape.center().distance_squared(other.shape.center());
+        let area_of_objects = self.area() + other.area();
+        area_of_distance - area_of_objects as i32
+
+        // self.shape.box_distance(&other.shape)
     }
 
     pub fn about_to_collide(&self, other: &Self) -> bool {
-        let next_self = self.shape.translate(self.velocity.into());
-        let next_other = other.shape.translate(other.velocity.into());
-        next_self.box_distance(&next_other) < 1
+        let (p1, p2) = match (self.velocity(), other.velocity()) {
+            (None, None) => (self.shape.center(), other.shape.center()),
+            (None, Some(_o)) => (self.shape.center(), other.shape.center() + Point::from(_o)),
+            (Some(_s), None) => (self.shape.center() + Point::from(_s), other.shape.center()),
+            (Some(_s), Some(_o)) => (self.shape.center() + Point::from(_s), other.shape.center() + Point::from(_o)),
+        };
+        (p1.distance_squared(p2) - (self.area() + other.area()) as i32) < 1
     }
     
-    pub fn is_collision(sprite1: &Sprite<'a, C, T>, sprite2: &Sprite<'a, C, T>) -> bool {
-        let distance = sprite1.distance_between(sprite2);
+    pub fn is_collision(&self, sprite2: &Sprite<'a, C, T>) -> bool {
+        let distance = self.distance_between(sprite2);
         distance < 1
     }
 
@@ -348,11 +361,11 @@ where
         if Self::is_collision(self, other) && self.is_moving() {
             let collision_normal = other.shape.surface_normal(self.shape.center());
             let collision_normal = GfxVector::from(collision_normal);
-            // let velocity = self.velocity_mut();
-
-            let velocity = self.velocity.calculate_reflection_vector(&collision_normal);
-            self.set_velocity(velocity);
-            bounced = true;
+            if let Some(vel) = self.velocity() {
+                let velocity = vel.calculate_reflection_vector(&collision_normal);
+                self.set_velocity(velocity);
+                bounced = true;
+            }
         }
         bounced
     }
@@ -373,8 +386,7 @@ where
 
     /// move object by applying the direction vector, while checking against containing rectangle
     pub fn move_object_bounded(&mut self, boundary: & impl Dimensions) {
-        let mut delta = self.velocity();
-        if self.is_moving() {
+        if let Some(mut delta) = self.velocity() {
             let center = self.shape.center();
             let width = self.half_width() as i32;
     
@@ -399,13 +411,10 @@ where
 
     /// apply the velocity to the position of the shape (ignoring any collisions)
     pub fn move_object(&mut self) {
-        if self.is_moving() {
-            let delta = self.velocity();
+        if let Some(delta) = self.velocity() {        
             self.shape.translate_mut(delta.into());
         }
     }
-    
-
 }
 
 
@@ -445,6 +454,7 @@ where
                 if current_sprite.is_moving() {
                     // Iterate over the remaining parts to find other elements matching the predicate
                     for other_sprite in left.iter().chain(right.iter()) {
+                        // if current_sprite.is_collision(other_sprite) {
                         if current_sprite.about_to_collide(other_sprite) {
                             if current_sprite.update_velocity(other_sprite) {
                                 // info!("{} bounced off of {}", current_sprite.name(), other_sprite.name());
