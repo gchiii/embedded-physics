@@ -1,8 +1,8 @@
 #![no_std]
 
-mod geometry;
-mod sprites;
-mod vectors;
+pub mod geometry;
+pub mod sprites;
+pub mod vectors;
 
 
 

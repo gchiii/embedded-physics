@@ -15,21 +15,37 @@ pub trait VecComp:
     + ToPrimitive
     + FromPrimitive
     + core::ops::Neg<Output = Self>
+    + SquareRoot
 {}
 
 impl VecComp for i32 {}
 impl VecComp for f32 {}
 
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct GfxVector<C: VecComp>(pub Vector2d<C>);
 
+pub trait GfxVecTrait:
+    Sized 
+    + Neg<Output = Self> 
+    + Sub<Output = Self> 
+    + Add<Output = Self>    
+{}
 
-impl<C: VecComp + From<i32>> From<Point> for GfxVector<C> {
+impl<C: VecComp> GfxVecTrait for GfxVector<C> {}
+
+impl<C: VecComp> PartialOrd for GfxVector<C> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        self.0.to_array().partial_cmp(&other.0.to_array())
+    }
+}
+
+
+impl<C: VecComp > From<Point> for GfxVector<C> {
     fn from(value: Point) -> Self {
         GfxVector(Vector2d { 
-            x: value.x.into(), 
-            y: value.y.into() 
+            x: C::from_i32(value.x).unwrap(), 
+            y: C::from_i32(value.y).unwrap()
         })
     }
 }
@@ -39,6 +55,28 @@ impl<C: VecComp + From<i32>> From<&Point> for GfxVector<C> {
         GfxVector(Vector2d { 
             x: value.x.into(), 
             y: value.y.into() 
+        })
+    }
+}
+
+impl<C: VecComp> Mul<C> for GfxVector<C> {
+    type Output = GfxVector<C>;
+
+    fn mul(self, rhs: C) -> Self::Output {
+        GfxVector(Vector2d { 
+            x: self.x * rhs, 
+            y: self.y * rhs,
+        })
+    }
+}
+
+impl<C: VecComp> Mul<GfxVector<C>> for f32 {
+    type Output = GfxVector<C>;
+
+    fn mul(self, rhs: GfxVector<C>) -> Self::Output {
+        GfxVector(Vector2d { 
+            x: rhs.x * C::from_f32(self).unwrap(), 
+            y: rhs.y * C::from_f32(self).unwrap(),
         })
     }
 }
@@ -54,16 +92,16 @@ impl Mul<GfxVector<i32>> for i32 {
     }
 }
 
-impl Mul<i32> for GfxVector<i32> {
-    type Output = GfxVector<i32>;
+// impl Mul<i32> for GfxVector<i32> {
+//     type Output = GfxVector<i32>;
 
-    fn mul(self, rhs: i32) -> Self::Output {
-        GfxVector(Vector2d { 
-            x: rhs * self.x, 
-            y: rhs * self.y,
-        })
-    }
-}
+//     fn mul(self, rhs: i32) -> Self::Output {
+//         GfxVector(Vector2d { 
+//             x: rhs * self.x, 
+//             y: rhs * self.y,
+//         })
+//     }
+// }
 
 impl Mul<i32> for &GfxVector<i32> {
     type Output = GfxVector<i32>;
@@ -76,26 +114,26 @@ impl Mul<i32> for &GfxVector<i32> {
     }
 }
 
-impl Mul<GfxVector<f32>> for f32 {
-    type Output = GfxVector<f32>;
+// impl Mul<GfxVector<f32>> for f32 {
+//     type Output = GfxVector<f32>;
 
-    fn mul(self, rhs: GfxVector<f32>) -> Self::Output {
-        GfxVector(Vector2d { 
-            x: rhs.x * self, 
-            y: rhs.y * self,
-        })
-    }
-}
+//     fn mul(self, rhs: GfxVector<f32>) -> Self::Output {
+//         GfxVector(Vector2d { 
+//             x: rhs.x * self, 
+//             y: rhs.y * self,
+//         })
+//     }
+// }
 
-impl Mul<GfxVector<i32>> for f32 {
-    type Output = GfxVector<i32>;
+// impl Mul<GfxVector<i32>> for f32 {
+//     type Output = GfxVector<i32>;
 
-    fn mul(self, rhs: GfxVector<i32>) -> Self::Output {
-        let x = self * rhs.x as f32;
-        let y = self * rhs.y as f32;
-        GfxVector(Vector2d { x: x as i32, y: y as i32 })
-    }
-}
+//     fn mul(self, rhs: GfxVector<i32>) -> Self::Output {
+//         let x = self * rhs.x as f32;
+//         let y = self * rhs.y as f32;
+//         GfxVector(Vector2d { x: x as i32, y: y as i32 })
+//     }
+// }
 
 impl Mul<f32> for GfxVector<i32> {
     type Output = GfxVector<i32>;
@@ -255,9 +293,84 @@ where
     fn magnitude(&self) -> C {
         let m = (self.get_x() * self.get_x()) + (self.get_y() * self.get_y());
         m.calc_sqrt()
-        // let m: f32 = m.to_f32().unwrap().sqrt();
-        // let m: C = C::from_f32(m).unwrap();
-        // m
+    }
+
+    // /// calculate the dot product of this vector and another one
+    // fn dot_product(&self, other: &Self) -> C {
+    //     (self.get_x() * other.get_x()) + (self.get_y() * other.get_y())
+    // }
+
+    // /// Normalize the vector into a unit vector (keep direction, but magnitude is one)
+    // fn normalize(&self) -> Self {
+    //     let mag = self.magnitude();        
+    //     let x = self.get_x() / mag;
+    //     let y = self.get_y() / mag;
+    //     (x, y).into()
+    // }
+
+    // /// rotate the vector 90 degrees
+    // fn rotate90(self) -> Self {
+    //     let x = -self.get_y();
+    //     let y = self.get_x();
+    //     (x, y).into()
+    // }
+
+    // /// Calculate the component of the incoming velocity perpendicular to the collision surface
+    // fn perpendicular_velocity(&self, collision_normal_normalized: &Self) -> Self {
+    //     let normal = collision_normal_normalized;
+    //     let dot = self.dot_product(normal);
+    //     normal * dot
+    // }
+
+
+    // /// Calculate the component of the incoming velocity parallel to the collision surface
+    // fn parallel_velocity(&self, perpendicular_velocity: &Self) -> Self {
+    //     self - perpendicular_velocity
+    // }
+    
+    // fn calculate_reflection_vector_cor(&self, collision_normal: &Self, coefficient_of_restitution: f32) -> Self {
+    //     // Ensure the normal is normalized (unit length)
+    //     let normal = collision_normal.normalize();
+
+    //     // Calculate the component of the incoming velocity perpendicular to the collision surface
+    //     let perpendicular_velocity = self.perpendicular_velocity(&normal);
+
+    //     // Calculate the component of the incoming velocity parallel to the collision surface
+    //     let parallel_velocity = self.parallel_velocity(&perpendicular_velocity);
+
+    //     // The reflected perpendicular velocity is reversed and scaled by the COR
+    //     let reflected_perpendicular_velocity = coefficient_of_restitution * (-perpendicular_velocity);
+
+    //     // The reflected velocity is the sum of the reflected perpendicular and parallel components
+    //     reflected_perpendicular_velocity + parallel_velocity
+
+    // }
+
+}
+
+impl<C: VecComp> VectorXY<C> for GfxVector<C> {
+    fn get_x(&self) -> C {
+        self.x
+    }
+
+    fn get_y(&self) -> C {
+        self.y
+    }
+}
+
+impl VectorTrait<i32> for GfxVector<i32> {}
+impl VectorTrait<f32> for GfxVector<f32> {}
+
+impl<C: VecComp> GfxVector<C> 
+where 
+    // Self: From<(C, C)> + Sized + Neg<Output = Self> + Sub<Output = Self> + Add<Output = Self> + for<'a> Sub<&'a Self, Output = Self>, 
+    // for<'a> &'a Self: Sub<&'a Self, Output = Self> + Mul<C, Output = Self>, 
+    // f32: Mul<Self, Output = Self> 
+{
+    /// get the magnitude of the vector in units C 
+    fn magnitude(&self) -> C {
+        let m = (self.get_x() * self.get_x()) + (self.get_y() * self.get_y());
+        m.calc_sqrt()
     }
 
     /// calculate the dot product of this vector and another one
@@ -284,7 +397,7 @@ where
     fn perpendicular_velocity(&self, collision_normal_normalized: &Self) -> Self {
         let normal = collision_normal_normalized;
         let dot = self.dot_product(normal);
-        normal * dot
+        *normal * dot
     }
 
 
@@ -292,8 +405,8 @@ where
     fn parallel_velocity(&self, perpendicular_velocity: &Self) -> Self {
         self - perpendicular_velocity
     }
-    
-    fn calculate_reflection_vector(&self, collision_normal: &Self) -> Self {
+
+    pub fn calculate_reflection_vector(&self, collision_normal: &Self) -> Self {
         // Ensure the normal is normalized (unit length)
         let normal = collision_normal.normalize();
 
@@ -327,21 +440,8 @@ where
         reflected_perpendicular_velocity + parallel_velocity
 
     }
-
 }
 
-impl<C: VecComp> VectorXY<C> for GfxVector<C> {
-    fn get_x(&self) -> C {
-        self.x
-    }
-
-    fn get_y(&self) -> C {
-        self.y
-    }
-}
-
-impl VectorTrait<i32> for GfxVector<i32> {}
-impl VectorTrait<f32> for GfxVector<f32> {}
 
 impl<C: VecComp>  GfxVector<C> {
     pub fn new(x: C, y: C) -> Self {
