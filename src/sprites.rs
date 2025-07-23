@@ -1,9 +1,5 @@
-use core::default;
-use core::f32::consts::PI;
-use core::marker::PhantomData;
-use core::ops::{AddAssign, Neg};
 
-use defmt::{error, info};
+use defmt::info;
 use embedded_graphics::prelude::{Angle, ContainsPoint, Dimensions, DrawTarget, PixelColor, Point, PointsIter, Transform};
 use embedded_graphics::primitives::{self, PrimitiveStyle, StyledDrawable};
 use embedded_graphics::primitives::{
@@ -19,11 +15,10 @@ use embedded_graphics::primitives::{
 };
 use embedded_graphics::Drawable;
 use heapless::Vec;
-use micromath::vector::{Vector, Vector2d};
 use num_traits::{Float, ToPrimitive};
 
 use crate::geometry::{Area, ClosestEdge, ClosestPoint, PointExt, SurfaceNormal};
-use crate::vectors::{self, SpriteVector, SpriteVectorFloat, SpriteVectorInt, VVelocity, VecComp, VecNormalize, VectorLike2d, VectorXY, Velocity, VelocityCalculationResults};
+use crate::vectors::*;
  
 
 /// Make an enum that serves as a wrapper around the various Primitives from the embedded-graphics library
@@ -167,7 +162,7 @@ impl<'a> Area for SpritePrimitive<'a> {
             SpritePrimitive::Circle(circle) => {
                         // Area = (π/4) × d^2, where 'd' is the diameter
                         let d_squared = circle.diameter * circle.diameter;
-                        let area = (PI/4.0) * d_squared as f32;
+                        let area = (core::f32::consts::PI/4.0) * d_squared as f32;
                         area as u32
                     },
             SpritePrimitive::Polyline(polyline) => {
@@ -341,7 +336,7 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
     pub fn velocity(&self) -> SpriteVelocity {
         match self.velocity {
             Some(v) => v,
-            None => VVelocity::zero(),
+            None => Velocity::zero(),
         }
     }
     
@@ -350,7 +345,7 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
     }
     
     pub fn set_velocity(&mut self, velocity: SpriteVelocity) {
-        if velocity == VVelocity::zero() {
+        if velocity == Velocity::zero() {
             self.velocity = None;
         } else {
             self.velocity = Some(velocity);
@@ -472,90 +467,90 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
         }
     }
 
-    fn calculate_reflection_vector_i32s(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> VelocityCalculationResults<i32> {
-        let mut calculations: VelocityCalculationResults<i32> = VelocityCalculationResults::<i32>::default();
-        calculations.initial = (*velocity).into();
-        calculations.collision_normal = (*collision_normal).into();
-        const SCALE: i32 = 1 << 10;
-        // let speed = velocity.magnitude();
+    // fn calculate_reflection_vector_i32s(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> VelocityCalculationResults<i32> {
+    //     let mut calculations: VelocityCalculationResults<i32> = VelocityCalculationResults::<i32>::default();
+    //     calculations.initial = (*velocity).into();
+    //     calculations.collision_normal = (*collision_normal).into();
+    //     const SCALE: i32 = 1 << 10;
+    //     // let speed = velocity.magnitude();
 
-        // Ensure the normal is normalized (unit length)
-        calculations.normal = {
-            let mag = collision_normal.magnitude();
-            let mut x = calculations.collision_normal.x * SCALE;
-            let mut y = calculations.collision_normal.y * SCALE;
-            x = (x as f32 / mag).round() as i32;
-            y = (y as f32 / mag).round() as i32;
-            (x,y).into()
-        };
-        // Calculate the component of the incoming velocity perpendicular to the collision surface
-        calculations.perpendicular = {
-            // velocity.perpendicular_velocity(&normal);
-            // let normal = collision_normal_normalized;
-            let dot = {
-                // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
-                calculations.initial.dot(*calculations.normal) / SCALE
-            };
-            calculations.normal * (dot as f32)
-        };
-        // Calculate the component of the incoming velocity parallel to the collision surface
-        calculations.parallel = (calculations.initial * (SCALE)) - calculations.perpendicular;
-        // The reflected perpendicular velocity is reversed and scaled by the COR
-        calculations.reflected = calculations.perpendicular.neg();
+    //     // Ensure the normal is normalized (unit length)
+    //     calculations.normal = {
+    //         let mag = collision_normal.magnitude();
+    //         let mut x = calculations.collision_normal.x * SCALE;
+    //         let mut y = calculations.collision_normal.y * SCALE;
+    //         x = (x as f32 / mag).round() as i32;
+    //         y = (y as f32 / mag).round() as i32;
+    //         (x,y).into()
+    //     };
+    //     // Calculate the component of the incoming velocity perpendicular to the collision surface
+    //     calculations.perpendicular = {
+    //         // velocity.perpendicular_velocity(&normal);
+    //         // let normal = collision_normal_normalized;
+    //         let dot = {
+    //             // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
+    //             calculations.initial.dot(*calculations.normal) / SCALE
+    //         };
+    //         calculations.normal * (dot as f32)
+    //     };
+    //     // Calculate the component of the incoming velocity parallel to the collision surface
+    //     calculations.parallel = (calculations.initial * (SCALE)) - calculations.perpendicular;
+    //     // The reflected perpendicular velocity is reversed and scaled by the COR
+    //     calculations.reflected = calculations.perpendicular.neg();
 
-        // The reflected velocity is the sum of the reflected perpendicular and parallel components
-        calculations.reflected = calculations.reflected + calculations.parallel;
+    //     // The reflected velocity is the sum of the reflected perpendicular and parallel components
+    //     calculations.reflected = calculations.reflected + calculations.parallel;
 
-        calculations.reflected.x /= SCALE;
-        calculations.reflected.y /= SCALE;
-        calculations
-    }
+    //     calculations.reflected.x /= SCALE;
+    //     calculations.reflected.y /= SCALE;
+    //     calculations
+    // }
 
-    fn calculate_reflection_vector(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> SpriteVelocity {
-        let calc1: VelocityCalculationResults<i32> = Self::calculate_reflection_vector_i32s(velocity, collision_normal);
-        info!("calc1: {}", calc1);
-        let mut calc2: VelocityCalculationResults<f32> = VelocityCalculationResults::<f32>::default();
-        calc2.initial = (*velocity).into();
-        calc2.collision_normal = (*collision_normal).into();
+    // fn calculate_reflection_vector(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> SpriteVelocity {
+    //     let calc1: VelocityCalculationResults<i32> = Self::calculate_reflection_vector_i32s(velocity, collision_normal);
+    //     info!("calc1: {}", calc1);
+    //     let mut calc2: VelocityCalculationResults<f32> = VelocityCalculationResults::<f32>::default();
+    //     calc2.initial = (*velocity).into();
+    //     calc2.collision_normal = (*collision_normal).into();
 
-        // let speed = velocity.magnitude();
-        // Ensure the normal is normalized (unit length)
-        calc2.normal = {
-            let mag = collision_normal.magnitude();
-            let mut x = calc2.collision_normal.x;
-            let mut y = calc2.collision_normal.y;
-            x = (x / mag);
-            y = (y / mag);
-            (x,y).into()
-        };
+    //     // let speed = velocity.magnitude();
+    //     // Ensure the normal is normalized (unit length)
+    //     calc2.normal = {
+    //         let mag = collision_normal.magnitude();
+    //         let mut x = calc2.collision_normal.x;
+    //         let mut y = calc2.collision_normal.y;
+    //         x = x / mag;
+    //         y = y / mag;
+    //         (x,y).into()
+    //     };
 
-        // Calculate the component of the incoming velocity perpendicular to the collision surface
-        calc2.perpendicular = {
-            let dot = {
-                // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
-                calc2.initial.dot(*calc2.normal)
-            };
-            calc2.normal * (dot as f32)
-        };
+    //     // Calculate the component of the incoming velocity perpendicular to the collision surface
+    //     calc2.perpendicular = {
+    //         let dot = {
+    //             // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
+    //             calc2.initial.dot(*calc2.normal)
+    //         };
+    //         calc2.normal * (dot as f32)
+    //     };
 
-        // Calculate the component of the incoming velocity parallel to the collision surface
-        calc2.parallel =  calc2.initial - calc2.perpendicular;
+    //     // Calculate the component of the incoming velocity parallel to the collision surface
+    //     calc2.parallel =  calc2.initial - calc2.perpendicular;
 
-        // The reflected perpendicular velocity is reversed and scaled by the COR
-        calc2.reflected = -calc2.perpendicular;
+    //     // The reflected perpendicular velocity is reversed and scaled by the COR
+    //     calc2.reflected = -calc2.perpendicular;
 
-        // The reflected velocity is the sum of the reflected perpendicular and parallel components
-        calc2.reflected = calc2.reflected + calc2.parallel;
+    //     // The reflected velocity is the sum of the reflected perpendicular and parallel components
+    //     calc2.reflected = calc2.reflected + calc2.parallel;
 
-        info!("calc2: {}", calc2);
-        // let speed2 = reflection.magnitude();
-        // if (speed - speed2).abs() >= 3.0*f32::EPSILON {
-        //     info!("speed changed by {}", (speed - speed2));
-        // }
-        // let ref_norm = reflection.normalize();
-        // ref_norm * Coefficient(speed)
-        calc2.reflected.into()
-    }
+    //     info!("calc2: {}", calc2);
+    //     // let speed2 = reflection.magnitude();
+    //     // if (speed - speed2).abs() >= 3.0*f32::EPSILON {
+    //     //     info!("speed changed by {}", (speed - speed2));
+    //     // }
+    //     // let ref_norm = reflection.normalize();
+    //     // ref_norm * Coefficient(speed)
+    //     calc2.reflected.into()
+    // }
 
     pub fn update_velocity(&mut self, other: &Self) -> bool {        
         let vec = other.shape.surface_normal(self.shape.center());
@@ -565,7 +560,8 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
 
         let collision_normal = SpriteVelocity::from(vec);
         let v1 = self.velocity();
-        let v2 = Self::calculate_reflection_vector(&v1, &collision_normal);
+        let v2 = v1.calculate_reflection(&collision_normal);
+        // Self::calculate_reflection_vector(&v1, &collision_normal);
         // if v1 == v2 {
         //     info!("collision_normal: {}, v1: {}, v2: {}", collision_normal, v1, v2);
         // }

@@ -1,5 +1,4 @@
 use embedded_graphics::{geometry::AnchorPoint, prelude::{Point, Size}, primitives::{Circle, Line, Polyline, Rectangle, Triangle}};
-use micromath::F32;
 use num_traits::Float;
 
 
@@ -81,8 +80,8 @@ impl ClosestPoint for Line {
             let t = t.clamp(0.0, 1.0);
 
             Point {
-                x: (line.start.x as f32 + t * line_vec.x as f32).round() as i32,
-                y: (line.start.y as f32 + t * line_vec.y as f32).round() as i32,
+                x: Float::round(line.start.x as f32 + t * line_vec.x as f32) as i32,
+                y: Float::round(line.start.y as f32 + t * line_vec.y as f32) as i32,
             }
         }
     }
@@ -136,7 +135,7 @@ impl SurfaceDistance for Line {
 
 impl SurfaceNormal for Rectangle {
     fn surface_normal(&self, point: Point) -> Point {
-        self.closest_edge(point.into()).surface_normal(point)
+        self.closest_edge(point).surface_normal(point)
     }
 }
 
@@ -166,7 +165,6 @@ impl ClosestEdge for Triangle {
 
 impl SurfaceNormal for Triangle {
     fn surface_normal(&self, point: Point) -> Point {
-        let point: Point = point.into();
         self.closest_edge(point).surface_normal(point)
     }
     
@@ -233,28 +231,28 @@ pub fn intersect_lines_i32(first_line: Line, other_line: Line) -> Option<Point> 
     Some(Point { x, y})
 }
 
-fn intersect_lines(first_line: Line, other_line: Line) -> Option<Point> {        
-    let a1 = first_line.end.y - first_line.start.y;
-    let b1 = first_line.start.x - first_line.end.x;
-    let c1 = (a1 * first_line.start.x) + (b1 * first_line.start.y);
+// fn intersect_lines(first_line: Line, other_line: Line) -> Option<Point> {        
+//     let a1 = first_line.end.y - first_line.start.y;
+//     let b1 = first_line.start.x - first_line.end.x;
+//     let c1 = (a1 * first_line.start.x) + (b1 * first_line.start.y);
 
-    let a2 = other_line.end.y - other_line.start.y;
-    let b2 = other_line.start.x - other_line.end.x;
-    let c2 = (a2 * other_line.start.x) + (b2 * other_line.start.y);
+//     let a2 = other_line.end.y - other_line.start.y;
+//     let b2 = other_line.start.x - other_line.end.x;
+//     let c2 = (a2 * other_line.start.x) + (b2 * other_line.start.y);
 
-    let delta = a1 * b2 - a2 * b1;
+//     let delta = a1 * b2 - a2 * b1;
 
-    if delta == 0 {
-        return None;
-    }
+//     if delta == 0 {
+//         return None;
+//     }
 
-    let x = F32((b2 * c1 - b1 * c2) as f32 / delta as f32);
-    let y = F32((a1 * c2 - a2 * c1) as f32 / delta as f32);
-    Some(Point {
-        x: x.round().0 as i32,
-        y: y.round().0 as i32,
-    })
-}
+//     let x = F32((b2 * c1 - b1 * c2) as f32 / delta as f32);
+//     let y = F32((a1 * c2 - a2 * c1) as f32 / delta as f32);
+//     Some(Point {
+//         x: x.round().0 as i32,
+//         y: y.round().0 as i32,
+//     })
+// }
 
 pub enum LineRelation {
     Parallel,
@@ -294,13 +292,14 @@ pub fn intersection(l1: &Line, l2: &Line) -> LineRelation {
 }
 
 
-// slope / intercept form of a line is y = mx + b
-fn calculat_slope_intercept_eq(p1: Point, p2: Point) {
-    let delta = p2 - p1;
-    let y_intercept = p1.y - ((delta.y * p1.x) / delta.x);
-}
+// // slope / intercept form of a line is y = mx + b
+// fn calculat_slope_intercept_eq(p1: Point, p2: Point) {
+//     let delta = p2 - p1;
+//     let y_intercept = p1.y - ((delta.y * p1.x) / delta.x);
+// }
 
 
+#[cfg(feature = "nalgebra")]
 fn calculate_standard_form(p1: Point, p2: Point) -> (i32, i32, i32) {
     let delta = p2 - p1;
     // slope is (delta.y / delta.x)
@@ -322,45 +321,48 @@ fn calculate_standard_form(p1: Point, p2: Point) -> (i32, i32, i32) {
     (a, b, c)
 }
 
+#[cfg(feature = "nalgebra")]
+extern crate nalgebra as na;
+#[cfg(feature = "nalgebra")]
 pub struct LineEquationStdForm {
     /// x coefficient
-    a: i32,
+    a: f32,
     /// y coefficient
-    b: i32,
+    b: f32,
     /// constant
-    c: i32,
+    c: f32,
 }
 
+#[cfg(feature = "nalgebra")]
 impl LineEquationStdForm {
     pub fn from_points(p1: Point, p2: Point) -> Self {
         let (x_coefficient, y_coefficient, constant) = calculate_standard_form(p1, p2);
-        Self { a: x_coefficient, b: y_coefficient, c: constant }
+        Self { a: x_coefficient as f32, b: y_coefficient as f32, c: constant as f32}
     }
     
-    // extern crate nalgebra as na;
     // use num_complex::Complex;
-    // pub fn intersect(&self, other: &Self) {
-    //     // Create the coefficient matrix A
-    //     let matrix_a = na::Matrix2::new(
-    //         Complex::from(self.a), Complex::from(self.b),
-    //         Complex::from(other.a), Complex::from(other.b),
-    //     );
+    pub fn intersect(&self, other: &Self) -> Option<na::Matrix2x1<f32>> {
+        // Create the coefficient matrix A
+        let matrix_a = na::Matrix2::new(
+            self.a, self.b,
+            other.a, other.b,
+        );
 
-    //     // Create the constant vector B
-    //     let vector_b = na::Vector2::new(self.c, other.c);
+        // Create the constant vector B
+        let vector_b = na::Vector2::new(self.c, other.c);
 
-    //     // Solve for the intersection point (x, y)
-    //     // This involves calculating the inverse of A and multiplying by B
-    //     match matrix_a.try_inverse() {
-    //         Some(inverse_a) => {
-    //             let intersection_point = inverse_a * vector_b;
-    //             // println!("Intersection point: {:?}", intersection_point);
-    //             Some(intersection_point)
-    //         }
-    //         None => {
-    //             // println!("Lines are parallel or coincident (no unique intersection).");
-    //             None
-    //         }
-    //     }
-    // }
+        // Solve for the intersection point (x, y)
+        // This involves calculating the inverse of A and multiplying by B
+        match matrix_a.try_inverse() {
+            Some(inverse_a) => {
+                let intersection_point = inverse_a * vector_b;
+                // println!("Intersection point: {:?}", intersection_point);
+                Some(intersection_point)
+            }
+            None => {
+                // println!("Lines are parallel or coincident (no unique intersection).");
+                None
+            }
+        }
+    }
 }
