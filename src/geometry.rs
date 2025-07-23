@@ -49,12 +49,14 @@ impl Area for Size {
     }
 }
 
-pub trait SurfaceNormal {
-    /// compute the Vector Normal to the Surface between self and point as a Point
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point;
-
+pub trait SurfaceDistance {
     /// distance from nearest surface to point
     fn distance(&self, point: impl Into<Point> + Copy) -> f32;
+}
+
+pub trait SurfaceNormal {
+    /// compute the Vector Normal to the Surface between self and point as a Point
+    fn surface_normal(&self, point: Point) -> Point;
 }
 
 pub trait ClosestEdge {
@@ -79,8 +81,8 @@ impl ClosestPoint for Line {
             let t = t.clamp(0.0, 1.0);
 
             Point {
-                x: (line.start.x as f32 + t * line_vec.x as f32) as i32,
-                y: (line.start.y as f32 + t * line_vec.y as f32) as i32,
+                x: (line.start.x as f32 + t * line_vec.x as f32).round() as i32,
+                y: (line.start.y as f32 + t * line_vec.y as f32).round() as i32,
             }
         }
     }
@@ -114,24 +116,31 @@ impl ClosestEdge for &[Point] {
 }
 
 impl SurfaceNormal for Line {
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point {
-        let point: Point = point.into();
+    fn surface_normal(&self, point: Point) -> Point {        
         let closest_point = self.closest_point(point);
-        closest_point - point
-    }
-    
+        if closest_point == point {
+            point
+        } else {
+            closest_point - point
+        }
+    }    
+}
+
+impl SurfaceDistance for Line {
     fn distance(&self, point: impl Into<Point> + Copy) -> f32 {
         let point: Point = point.into();
         let closest_point = self.closest_point(point);
         closest_point.distance(point) as f32
-    }    
+    }        
 }
 
 impl SurfaceNormal for Rectangle {
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point {
+    fn surface_normal(&self, point: Point) -> Point {
         self.closest_edge(point.into()).surface_normal(point)
     }
-    
+}
+
+impl SurfaceDistance for Rectangle {    
     fn distance(&self, point: impl Into<Point> + Copy) -> f32 {
         self.closest_edge(point.into()).distance(point)
     }
@@ -156,11 +165,14 @@ impl ClosestEdge for Triangle {
 }
 
 impl SurfaceNormal for Triangle {
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point {
+    fn surface_normal(&self, point: Point) -> Point {
         let point: Point = point.into();
         self.closest_edge(point).surface_normal(point)
     }
     
+}
+
+impl SurfaceDistance for Triangle {
     fn distance(&self, point: impl Into<Point> + Copy) -> f32 {
         let point: Point = point.into();
         self.closest_edge(point).distance(point)
@@ -174,11 +186,13 @@ impl<'a> ClosestEdge for Polyline<'a> {
 }
 
 impl<'a> SurfaceNormal for Polyline<'a> {
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point {
-        let point: Point = point.into();
+    fn surface_normal(&self, point: Point) -> Point {
         self.closest_edge(point).surface_normal(point)
     }
     
+}
+
+impl<'a> SurfaceDistance for Polyline<'a> {
     fn distance(&self, point: impl Into<Point> + Copy) -> f32 {
         let point: Point = point.into();
         self.closest_edge(point).distance(point)
@@ -186,12 +200,14 @@ impl<'a> SurfaceNormal for Polyline<'a> {
 }
 
 impl SurfaceNormal for Circle {
-    // compute the normalized surface normal between self and point
-    fn surface_normal(&self, point: impl Into<Point> + Copy) -> Point {
-        let point: Point = point.into();
+    // compute the surface normal between self and point
+    fn surface_normal(&self, point: Point) -> Point {
         self.center() - point
     }
     
+}
+
+impl SurfaceDistance for Circle {
     fn distance(&self, point: impl Into<Point> + Copy) -> f32 {
         (self.center().distance(point.into()) as u32 - (self.diameter / 2)) as f32
     }
