@@ -370,6 +370,7 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
         }        
     }
 
+    /// Compute shape moved by velocity and rounded
     pub fn next_position(&self) -> SpritePrimitive<'_> {
         match self.velocity {
             Some(v) => self.shape.translate(v.into()),
@@ -402,18 +403,23 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
     }
 
 
+    fn next_box_distance(&self, other: &Self) -> i32 {
+        let p1 = self.next_position();
+        let p2 = other.next_position();
+        let area_of_distance = p1.center().distance_squared(p2.center());
+        let area_of_objects = self.area() + other.area();
+        area_of_distance - area_of_objects as i32
+    }
+
     pub fn about_to_collide(&self, other: &Self) -> bool {
-        self.box_distance(other) <= 1
-        // let current_distance = self.distance_between(other);
-        // let p1 = self.next_position();
-        // let p2 = other.next_position();
-        // // let next_distance = p1.distance(&p2);
-        // // if next_distance < current_distance {
-        // //     next_distance <= 2
-        // // } else {
-        // //     false
-        // // }
-        // current_distance <= 2
+        let current = self.box_distance(other);
+        let next = self.next_box_distance(other);
+        if current > next {
+            // moving closer
+            next < 1
+        } else {
+            false
+        }
     }
     
     pub fn is_collision(&self, sprite2: &Self) -> bool {
@@ -467,91 +473,6 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
         }
     }
 
-    // fn calculate_reflection_vector_i32s(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> VelocityCalculationResults<i32> {
-    //     let mut calculations: VelocityCalculationResults<i32> = VelocityCalculationResults::<i32>::default();
-    //     calculations.initial = (*velocity).into();
-    //     calculations.collision_normal = (*collision_normal).into();
-    //     const SCALE: i32 = 1 << 10;
-    //     // let speed = velocity.magnitude();
-
-    //     // Ensure the normal is normalized (unit length)
-    //     calculations.normal = {
-    //         let mag = collision_normal.magnitude();
-    //         let mut x = calculations.collision_normal.x * SCALE;
-    //         let mut y = calculations.collision_normal.y * SCALE;
-    //         x = (x as f32 / mag).round() as i32;
-    //         y = (y as f32 / mag).round() as i32;
-    //         (x,y).into()
-    //     };
-    //     // Calculate the component of the incoming velocity perpendicular to the collision surface
-    //     calculations.perpendicular = {
-    //         // velocity.perpendicular_velocity(&normal);
-    //         // let normal = collision_normal_normalized;
-    //         let dot = {
-    //             // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
-    //             calculations.initial.dot(*calculations.normal) / SCALE
-    //         };
-    //         calculations.normal * (dot as f32)
-    //     };
-    //     // Calculate the component of the incoming velocity parallel to the collision surface
-    //     calculations.parallel = (calculations.initial * (SCALE)) - calculations.perpendicular;
-    //     // The reflected perpendicular velocity is reversed and scaled by the COR
-    //     calculations.reflected = calculations.perpendicular.neg();
-
-    //     // The reflected velocity is the sum of the reflected perpendicular and parallel components
-    //     calculations.reflected = calculations.reflected + calculations.parallel;
-
-    //     calculations.reflected.x /= SCALE;
-    //     calculations.reflected.y /= SCALE;
-    //     calculations
-    // }
-
-    // fn calculate_reflection_vector(velocity: &SpriteVelocity, collision_normal: &SpriteVelocity) -> SpriteVelocity {
-    //     let calc1: VelocityCalculationResults<i32> = Self::calculate_reflection_vector_i32s(velocity, collision_normal);
-    //     info!("calc1: {}", calc1);
-    //     let mut calc2: VelocityCalculationResults<f32> = VelocityCalculationResults::<f32>::default();
-    //     calc2.initial = (*velocity).into();
-    //     calc2.collision_normal = (*collision_normal).into();
-
-    //     // let speed = velocity.magnitude();
-    //     // Ensure the normal is normalized (unit length)
-    //     calc2.normal = {
-    //         let mag = collision_normal.magnitude();
-    //         let mut x = calc2.collision_normal.x;
-    //         let mut y = calc2.collision_normal.y;
-    //         x = x / mag;
-    //         y = y / mag;
-    //         (x,y).into()
-    //     };
-
-    //     // Calculate the component of the incoming velocity perpendicular to the collision surface
-    //     calc2.perpendicular = {
-    //         let dot = {
-    //             // (v.x * n.x * SCALE) + (v.y * n.x * SCALE) so we divide by scale to eliminate extra scaling
-    //             calc2.initial.dot(*calc2.normal)
-    //         };
-    //         calc2.normal * (dot as f32)
-    //     };
-
-    //     // Calculate the component of the incoming velocity parallel to the collision surface
-    //     calc2.parallel =  calc2.initial - calc2.perpendicular;
-
-    //     // The reflected perpendicular velocity is reversed and scaled by the COR
-    //     calc2.reflected = -calc2.perpendicular;
-
-    //     // The reflected velocity is the sum of the reflected perpendicular and parallel components
-    //     calc2.reflected = calc2.reflected + calc2.parallel;
-
-    //     info!("calc2: {}", calc2);
-    //     // let speed2 = reflection.magnitude();
-    //     // if (speed - speed2).abs() >= 3.0*f32::EPSILON {
-    //     //     info!("speed changed by {}", (speed - speed2));
-    //     // }
-    //     // let ref_norm = reflection.normalize();
-    //     // ref_norm * Coefficient(speed)
-    //     calc2.reflected.into()
-    // }
-
     pub fn update_velocity(&mut self, other: &Self) -> bool {        
         let vec = other.shape.surface_normal(self.shape.center());
         if vec == Point::zero() {
@@ -561,18 +482,6 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
         let collision_normal = SpriteVelocity::from(vec);
         let v1 = self.velocity();
         let v2 = v1.calculate_reflection(&collision_normal);
-        // Self::calculate_reflection_vector(&v1, &collision_normal);
-        // if v1 == v2 {
-        //     info!("collision_normal: {}, v1: {}, v2: {}", collision_normal, v1, v2);
-        // }
-        // info!("sprite: {}, v1: {}, v2: {}", self.name, v1, v2);
-        // let speed_a = vel.magnitude();
-        // let speed_b = velocity.magnitude();
-        // if (speed_a - speed_b) > 0.1 {
-        //     info!("sprite: {}, collision_normal: {}", other.name, collision_normal);
-        //     info!("sprite: {}, vel1: {}, vel2: {}", self.name, vel, velocity);
-        //     info!("sprite: {} slowed down, speed before: {}, after: {}", self.name, speed_a, speed_b);
-        // }
         self.set_velocity(v2);
         v1 != v2
     }
@@ -603,7 +512,7 @@ impl<'a, C: PixelColor> SpriteContainer<'a, C> {
 
     pub fn update_positions(&mut self) {
         let max_idx = self.sprites.len();
-        for i in 0..max_idx {
+        'outer: for i in 0..max_idx {
             let (left, right) = self.sprites.split_at_mut(i);
             if let Some((current_sprite, right)) = right.split_first_mut() {
                 // info!("sprite: {} vel: {}", current_sprite.name, current_sprite.velocity());
@@ -612,15 +521,12 @@ impl<'a, C: PixelColor> SpriteContainer<'a, C> {
                     for other_sprite in left.iter().chain(right.iter()) {
                         if current_sprite.about_to_collide(other_sprite) {
                             if current_sprite.update_velocity(other_sprite) {
-                                info!("{} bounced off of {}", current_sprite.name, other_sprite.name);
+                                defmt::debug!("{} bounced off of {}", current_sprite.name, other_sprite.name);
+                                continue 'outer;
                             } else {
                                 info!("{} and {} hit with no bounce", current_sprite.name, other_sprite.name);
                             }
                         }
-                        // if current_sprite.about_to_collide(other_sprite) 
-                        //     && current_sprite.update_velocity(other_sprite) {
-                        //         // info!("{} bounced off of {}", current_sprite.name(), other_sprite.name());                            
-                        // }
                     }
                 }
             }
