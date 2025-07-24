@@ -1,6 +1,7 @@
 
 use defmt::info;
-use embedded_graphics::prelude::{Angle, ContainsPoint, Dimensions, DrawTarget, PixelColor, Point, PointsIter, Transform};
+use embedded_graphics::draw_target::Clipped;
+use embedded_graphics::prelude::{Angle, ContainsPoint, Dimensions, DrawTarget, DrawTargetExt, PixelColor, Point, PointsIter, Transform};
 use embedded_graphics::primitives::{self, PrimitiveStyle, StyledDrawable};
 use embedded_graphics::primitives::{
     Line,
@@ -490,7 +491,7 @@ impl<'a, C: PixelColor, > Sprite<'a, C> {
 
 
 // #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
-#[derive(Clone, Debug, Default, defmt::Format)]
+#[derive(Clone, Default, Debug, defmt::Format)]
 pub struct SpriteContainer<'a, C: PixelColor> 
     where 
         C: PixelColor, 
@@ -501,9 +502,14 @@ pub struct SpriteContainer<'a, C: PixelColor>
 }
 
 impl<'a, C: PixelColor> SpriteContainer<'a, C> {
+
     pub fn new(boundary: Rectangle) -> Self {
         let sprites = Vec::new();
-        Self { boundary, sprites, _phantom: core::marker::PhantomData }
+        Self { 
+            boundary, 
+            sprites, 
+            _phantom: core::marker::PhantomData,
+        }
     }
 
     pub fn add_sprite(&mut self, sprite: Sprite<'a, C>) -> Result<(), Sprite<'a, C>> {
@@ -555,3 +561,18 @@ impl<'a, C: PixelColor> Drawable for SpriteContainer<'a, C> {
     }
 }
 
+
+pub struct SpriteWindow<'a, C: PixelColor, T: DrawTargetExt> {
+    pub window: Clipped<'a, T>,
+    _phantom: core::marker::PhantomData<&'a C>,
+}
+
+impl<'a, C: PixelColor, T: DrawTargetExt> SpriteWindow<'a, C, T> {
+    pub fn new(dt: &'a mut T, area: &Rectangle) -> Self {
+        let window = dt.clipped(area);
+        Self { 
+            window, 
+            _phantom: core::marker::PhantomData 
+        }
+    }
+}
