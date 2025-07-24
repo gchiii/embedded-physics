@@ -6,7 +6,7 @@ license = "MIT or Apache-2.0"
 authors = ["George C. Huntington, III"]
 
 [features]
-default = ["defmt", "nalgebra"]
+default = ["defmt"]
 defmt = ["dep:defmt", "embedded-graphics/defmt"]
 nalgebra = ["nalgebra/macros", "nalgebra/libm", "dep:libm"]
 
@@ -20,6 +20,4 @@ thiserror-no-std = { version = "2.0.2", default-features = false }
 libm = { version = "0.2.15", default-features = false, optional = true}
 heapless = { version = "0.8.0", default-features = false }
 nalgebra = { version = "0.33.2", default-features = false, features = ["macros", "libm"], optional = true}
-# num-complex = { version = "0.4.6", default-features = false, features = ["libm"]}
-# simba = { version = "0.9.0", default-features = false, features = ["libm"]}
 
